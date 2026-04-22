@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bull';
 import { Transaction, Wallet, TRANSFER_QUEUE } from '@app/common';
 import { TransferController } from './transfer.controller';
 import { TransferService } from './transfer.service';
+import { TransferRequeueService } from './transfer-requeue.service';
 
 @Module({
   imports: [
@@ -11,6 +12,6 @@ import { TransferService } from './transfer.service';
     BullModule.registerQueue({ name: TRANSFER_QUEUE }),
   ],
   controllers: [TransferController],
-  providers: [TransferService],
+  providers: [TransferService, TransferRequeueService],
 })
 export class TransferModule {}

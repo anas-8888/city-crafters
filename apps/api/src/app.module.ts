@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { Wallet, Transaction } from '@app/common';
@@ -12,10 +15,8 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    // Load .env file first so all other modules can access env vars
     ConfigModule.forRoot({ isGlobal: true }),
 
-    // Structured JSON logging via Winston
     WinstonModule.forRoot({
       transports: [
         new winston.transports.Console({
@@ -27,7 +28,12 @@ import { HealthModule } from './health/health.module';
       ],
     }),
 
-    // TypeORM with MySQL – synchronize:true is acceptable for dev; use migrations in prod
+    // Rate limiting: max 20 requests per minute per IP across all endpoints
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+
+    // Enables @Cron() decorators for scheduled tasks (e.g. requeue stuck transactions)
+    ScheduleModule.forRoot(),
+
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -39,12 +45,10 @@ import { HealthModule } from './health/health.module';
         password: cfg.get('DB_PASSWORD', 'root'),
         database: cfg.get('DB_NAME', 'wallet_db'),
         entities: [Wallet, Transaction],
-        // DB_SYNCHRONIZE controls table creation; defaults to true so Docker works out of the box
         synchronize: cfg.get('DB_SYNCHRONIZE', 'true') === 'true',
       }),
     }),
 
-    // BullMQ backed by Redis
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -60,6 +64,10 @@ import { HealthModule } from './health/health.module';
     TransferModule,
     TransactionModule,
     HealthModule,
+  ],
+  providers: [
+    // تطبيق الـ rate limit على جميع الـ endpoints تلقائياً
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

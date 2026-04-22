@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, NotEquals, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class CreateTransferDto {
   @IsString()
@@ -11,13 +11,9 @@ export class CreateTransferDto {
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01, { message: 'amount must be greater than zero' })
+  @Max(1_000_000, { message: 'amount must not exceed 1,000,000' })
   amount: number;
 
-  /**
-   * Optional client-supplied idempotency key (e.g. UUID v4).
-   * If provided, duplicate requests with the same key are rejected rather than
-   * re-processed, preventing double-spending on network retries.
-   */
   @IsOptional()
   @IsUUID()
   idempotencyKey?: string;
